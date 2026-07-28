@@ -42,14 +42,10 @@ jobs:
 
       - name: Refresh stargazer data
         env:
-          GITHUB_TOKEN: ${{ secrets.ATLAS_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ATLAS_GITHUB_TOKEN || github.token }}
         run: |
-          if [ -n "$GITHUB_TOKEN" ]; then
-            python atlas/fetch_stargazers.py
-            python atlas/process.py
-          else
-            echo "::warning::ATLAS_GITHUB_TOKEN is not configured; publishing the last committed valid snapshot."
-          fi
+          python atlas/fetch_stargazers.py
+          python atlas/process.py
 
       - name: Refuse empty atlas data
         run: python atlas/validate_data.py atlas/data.js
