@@ -94,21 +94,9 @@ def api(url, token, retries=3, *, allow_404=False, sleeper=time.sleep):
 
 def main():
     token = get_token()
-    actor = api("https://api.github.com/user", token)
-    actor_login = actor.get("login", "<unknown>")
-    log(f"authenticated token owner: {actor_login}")
-
     repo_meta = api(f"https://api.github.com/repos/{REPO}", token)
     expected_stars = int(repo_meta.get("stargazers_count", 0))
-    permission = api(
-        f"https://api.github.com/repos/{REPO}/collaborators/{actor_login}/permission",
-        token,
-    )
-    log(
-        "repository permission: "
-        f"{permission.get('permission', '<unknown>')} "
-        f"(role={permission.get('role_name', '<unknown>')})"
-    )
+    log(f"repository metadata loaded: expected stars={expected_stars}")
 
     logins = []
     page = 1
