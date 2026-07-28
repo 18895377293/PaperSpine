@@ -11,7 +11,7 @@ on:
       - ".github/workflows/atlas.yml"
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -42,10 +42,10 @@ jobs:
 
       - name: Refresh stargazer data
         env:
-          ATLAS_GITHUB_TOKEN: ${{ secrets.ATLAS_GITHUB_TOKEN }}
+          ATLAS_GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ -z "$ATLAS_GITHUB_TOKEN" ]; then
-            echo "::error::ATLAS_GITHUB_TOKEN is required for the restricted Stargazers API."
+            echo "::error::The GitHub Actions repository token is unavailable."
             exit 1
           fi
           python atlas/fetch_stargazers.py
