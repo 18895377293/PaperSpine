@@ -33,7 +33,9 @@ class AtlasPipelineTests(unittest.TestCase):
         error = urllib.error.HTTPError(
             "https://api.github.com/example", 403, "Forbidden", {}, None
         )
-        with mock.patch.object(fetch.urllib.request, "urlopen", side_effect=error):
+        with mock.patch.object(
+            fetch.urllib.request, "urlopen", side_effect=error
+        ) as mocked_urlopen:
             with self.assertRaisesRegex(RuntimeError, "HTTP 403"):
                 fetch.api(
                     "https://api.github.com/example",
@@ -41,6 +43,7 @@ class AtlasPipelineTests(unittest.TestCase):
                     retries=3,
                     sleeper=lambda _seconds: None,
                 )
+            self.assertEqual(mocked_urlopen.call_count, 1)
 
     def test_atomic_json_writer_replaces_destination(self):
         path = ROOT / "tests" / ".atlas-test-data.json"

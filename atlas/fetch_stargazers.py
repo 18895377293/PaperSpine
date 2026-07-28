@@ -14,18 +14,23 @@ LOG = os.path.join(HERE, "fetch_progress.txt")
 
 
 def get_token():
+    token = os.environ.get("ATLAS_GITHUB_TOKEN", "").strip()
+    if token:
+        return token
     token = os.environ.get("GITHUB_TOKEN", "").strip()
     if token:
         return token
     token_file = os.path.join(HERE, "token.txt")
     if os.path.exists(token_file):
         return open(token_file, encoding="utf-8").read().strip()
-    raise RuntimeError("no GITHUB_TOKEN env var and no token.txt")
+    raise RuntimeError("no ATLAS_GITHUB_TOKEN or GITHUB_TOKEN env var and no token.txt")
 
 
 def log(msg):
+    timestamped = f"{time.strftime('%H:%M:%S')} {msg}"
+    print(timestamped, flush=True)
     with open(LOG, "a", encoding="utf-8") as f:
-        f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
+        f.write(timestamped + "\n")
 
 def write_json_atomic(path, value, *, indent=None):
     directory = os.path.dirname(path)
@@ -55,10 +60,30 @@ def api(url, token, retries=3, *, allow_404=False, sleeper=time.sleep):
         except urllib.error.HTTPError as e:
             if e.code == 404 and allow_404:
                 return None
-            last_error = f"HTTP {e.code}"
-            if e.code in (403, 429):
+            try:
+                response_body = e.read().decode("utf-8", errors="replace")
+                response_message = json.loads(response_body).get("message", response_body)
+            except Exception:
+                response_message = "unable to decode GitHub error response"
+            diagnostics = {
+                "accepted_permissions": e.headers.get("X-Accepted-GitHub-Permissions", "not reported"),
+                "rate_limit_remaining": e.headers.get("X-RateLimit-Remaining", "not reported"),
+                "request_id": e.headers.get("X-GitHub-Request-Id", "not reported"),
+            }
+            last_error = (
+                f"HTTP {e.code}: {response_message}; "
+                f"accepted_permissions={diagnostics['accepted_permissions']}; "
+                f"rate_limit_remaining={diagnostics['rate_limit_remaining']}; "
+                f"request_id={diagnostics['request_id']}"
+            )
+            rate_limited = e.code == 429 or (
+                e.code == 403 and diagnostics["rate_limit_remaining"] == "0"
+            )
+            if rate_limited:
                 if attempt + 1 < retries:
                     sleeper(30 * (attempt + 1))
+            elif e.code in (401, 403):
+                break
             elif attempt + 1 < retries:
                 sleeper(5)
         except Exception as e:
@@ -69,8 +94,21 @@ def api(url, token, retries=3, *, allow_404=False, sleeper=time.sleep):
 
 def main():
     token = get_token()
+    actor = api("https://api.github.com/user", token)
+    actor_login = actor.get("login", "<unknown>")
+    log(f"authenticated token owner: {actor_login}")
+
     repo_meta = api(f"https://api.github.com/repos/{REPO}", token)
     expected_stars = int(repo_meta.get("stargazers_count", 0))
+    permission = api(
+        f"https://api.github.com/repos/{REPO}/collaborators/{actor_login}/permission",
+        token,
+    )
+    log(
+        "repository permission: "
+        f"{permission.get('permission', '<unknown>')} "
+        f"(role={permission.get('role_name', '<unknown>')})"
+    )
 
     logins = []
     page = 1

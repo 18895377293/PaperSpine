@@ -42,9 +42,9 @@ jobs:
 
       - name: Refresh stargazer data
         env:
-          GITHUB_TOKEN: ${{ secrets.ATLAS_GITHUB_TOKEN }}
+          ATLAS_GITHUB_TOKEN: ${{ secrets.ATLAS_GITHUB_TOKEN }}
         run: |
-          if [ -z "$GITHUB_TOKEN" ]; then
+          if [ -z "$ATLAS_GITHUB_TOKEN" ]; then
             echo "::error::ATLAS_GITHUB_TOKEN is required for the restricted Stargazers API."
             exit 1
           fi
